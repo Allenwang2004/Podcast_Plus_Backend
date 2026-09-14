@@ -1,171 +1,152 @@
-## Podcast+ Backend
+# Podcast+
 
-A personal podcast generation system that transforms static knowledge into interactive, personalized audio content using RAG (Retrieval-Augmented Generation), dialogue generation, and TTS (Text-to-Speech) technologies.
+<p align="center">
+  <img src="file/coding101_pp.jpg" alt="Podcast+ overview" width="720">
+</p>
+
+> Turn any knowledge source into a personalized two-host podcast — generated on demand from your own documents, live web results, or a spoken question.
 
 ---
 
-## System Architecture Overview
+## Why Podcast+
 
-### Vocal Insertion Pipeline
+Podcasts are a great way to learn, but the listener has never been in control:
 
-1. User records audio
-2. Frontend converts audio format
-3. POST to Next.js API Route
-4. Whisper STT (Speech-to-Text)
-5. Pass transcribed text as user_instruction
+- **Supply-side limits** — you can only listen to what creators decide to make.
+- **Content mismatch** — topics are too broad, too shallow, or the cross-domain angle you care about simply doesn't exist.
+- **Time cost** — getting one specific piece of knowledge often means sitting through forty minutes of small talk.
 
-### TTS (Text-to-Speech) Pipeline
+Podcast+ flips this around. Instead of *finding* content, you *make* it: give the system a topic and the sources you trust, and it writes a natural two-person conversation, reads it out loud, and hands you an episode tailored to exactly what you want to know right now.
 
-#### Process Flow
-1. Frontend receives generate dialogue and audioid
-2. Call generate_audio with dialogue and audioid
-3. Backend parses the dialogue
-4. Use TTS to generate audio segments
-5. Merge audio segments
-6. Save to server
-7. Frontend plays audio via URL generated from audioid
+---
 
-#### Architecture Design
+## What You Can Do
 
-Always-running service + File queue communication
+### Personalized Listening
+Pick the host voice style (gentle / lively / meditation) and the conversation depth (easy → professional). The same topic can be a casual explainer for a commute or a technical deep-dive for study.
+
+### Real-Time Interaction
+Speak or type your topic. Interrupt at any point with a follow-up and the next episode is regenerated around it. Podcast+ remembers the previous episode's context, so "tell me more about the pit-lane penalties" just works.
+
+### Personal Knowledge Base
+Upload PDFs, Word documents, slides, or even images (OCR is built in). Podcast+ indexes them into your own searchable knowledge base, and every episode is grounded in what *you* provided rather than generic web content.
+
+### Live Web Search
+No document on hand? Turn on web search and Podcast+ pulls fresh sources on the fly — ideal for news, current events, and fast-moving topics.
+
+---
+
+## How It Works
 
 ```
-FastAPI Backend              Audio Worker Service       Retrieval Worker Service
-     |                              |                           |
-     |                              |                           | (Always running)
-     |                              |                           | Models pre-loaded
-     |                              |                           |
-     |----- task.json ------------> |                           |
-     |                              |                           |
-     |                              |                           |
-     |                              |                           |
-     |                              |                           |
-     |                              |                           |
-     |<----- result.json -----------|                           |
-     |                              |                           |
-     |------------------ retrieve_task.json ------------------->|
-     |                                                          |
-     |                                                          | Perform retrieval
-     |                                                          | (FAISS + Embedding)
-     |                                                          |
-     |<--  retrieve_result.json   ------------------------------|
-     |
-     | Return audio URL or retrieval results
+                     you speak or type a topic
+                                │
+                                ▼
+                       ┌─────────────────┐
+                       │   Whisper STT   │
+                       └────────┬────────┘
+                                ▼
+                    ┌───────────────────────┐
+                    │ instruction + memory  │
+                    └───────────┬───────────┘
+        ┌───────────────────────┼───────────────────────┐
+        ▼                       ▼                       ▼
+┌────────────────┐    ┌──────────────────┐    ┌──────────────────┐
+│ your knowledge │    │    web search    │    │ previous episode │
+│ base (FAISS +  │    │    (Tavily +     │    │     context      │
+│  re-ranking)   │    │   trafilatura)   │    │                  │
+└───────┬────────┘    └────────┬─────────┘    └────────┬─────────┘
+        └──────────────────────┼───────────────────────┘
+                               ▼
+              ┌────────────────────────────────────┐
+              │  fine-tuned Llama dialogue model   │
+              │      → two-host podcast script     │
+              └────────────────┬───────────────────┘
+                               ▼
+              ┌────────────────────────────────────┐
+              │      Kokoro TTS → merged .wav      │
+              └────────────────┬───────────────────┘
+                               ▼
+                        play in the app
 ```
 
-**Advantages:**
-- ✅ Models loaded only once, speed increased 5-10x
-- ✅ Parallel audio generation, speedup 2-4x
-- ✅ Support multiple concurrent requests
-- ✅ Service failures don't affect main process
+1. **Input** — Type a topic or record it; speech is transcribed with Whisper.
+2. **Gather context** — The query is matched against your uploaded knowledge base (FAISS retrieval + cross-encoder re-ranking), optionally enriched with live web search, and merged with the previous episode when you're continuing a conversation.
+3. **Write the script** — Our fine-tuned dialogue model turns the instruction and context into a natural back-and-forth between two hosts at the depth you chose.
+4. **Voice it** — Each line is synthesized with Kokoro TTS in the selected voice, the segments are stitched together, and the finished episode streams back to the app.
 
-
-### TTS Voice Settings
-
-#### American English
-
-**Female Voices:**
-- **af_heart**: Lively and energetic
-- **af_bella**: Gentle and warm
-- **af_nicole**: Meditation style
-- **af_sarah**: Neutral/Standard
-- **af_sky**: Neutral/Standard
-- **af_alloy**: Neutral/Standard
-- **af_aoede**: Neutral/Standard
-- **af_kore**: Neutral/Standard
-- **af_nova**: Neutral/Standard
-- **af_river**: Neutral/Standard
-- **af_jessica**: Neutral/Standard
-
-**Male Voices:**
-- **am_adam**: Neutral/Standard
-- **am_echo**: Gentle voice
-- **am_eric**: Neutral/Standard
-- **am_fenrir**: Lively and energetic
-- **am_liam**: Neutral/Standard
-- **am_michael**: Meditation style
-- **am_onyx**: Neutral/Standard
-- **am_puck**: Neutral/Standard
-
-#### British English
-
-**Female Voices:**
-- **bf_alice**: Neutral/Standard
-- **bf_emma**: Neutral/Standard
-- **bf_isabella**: Neutral/Standard
-- **bf_lily**: British accent
-
-**Male Voices:**
-- **bm_daniel**: Neutral/Standard
-- **bm_fable**: Neutral/Standard
-- **bm_george**: Neutral/Standard
-- **bm_lewis**: British accent
+Retrieval and audio synthesis run as always-on worker services with pre-loaded models, so episodes are generated in parallel without reloading anything between requests.
 
 ---
 
-## Project Progress and Status
+## The Dialogue Model
 
-### Completed Features ✅
+Generic instruction-tuned LLMs tend to *answer* a question rather than *talk about* it. To get the conversational feel of a real podcast, we fine-tuned our own dialogue model:
 
-- [x] RAG pipeline implementation
-- [x] PDF file extraction pipeline
-- [x] Upload pipeline: Store uploaded data in backend after compression, trigger RAG pipeline to generate index
-- [x] Frontend voice input integration
-- [x] TTS pipeline: Retrieve relevant content, generate dialogue with LLM, produce audio files, return to frontend
-- [x] Retrieval pipeline
-- [x] Docker containerization
-- [x] Production deployment: Backend on Digital Ocean, Frontend on Vercel
-- [x] Multi-format data extraction support
-- [x] Web search integration
-- [x] Personalization settings: Voice selection via Kokoro TTS, dialogue difficulty adjustment via prompt
-- [x] Search function integration: Function-based rather than API, disabled RAG when web search is selected
-- [x] Demo examples and use cases
-- [x] Memory functionality: LLM-as-a-judge to determine conversation continuity, reuse previous retrieval context for follow-up questions
-- [x] Retrieval worker service
+| | |
+|---|---|
+| **Base model** | `meta-llama/Llama-3.2-1B-Instruct` |
+| **Method** | LoRA (r = 16, α = 32, dropout 0.05) on `q_proj / k_proj / v_proj / o_proj` |
+| **Training data** | 3,000 conversations from DailyDialog, auto-labelled into five topics (sports, food, school, health, social) by sentence-embedding similarity and reformatted into `A:` / `B:` podcast-style instruction pairs |
+| **Objective** | Causal-LM cross-entropy — each turn is predicted from the prompt plus every turn before it |
+| **Setup** | 1 epoch, effective batch size 16, lr 2e-4, bf16, Google Colab T4 |
+| **Weights** | [`coconut19/llama-dialog-lora`](https://huggingface.co/coconut19/llama-dialog-lora) on Hugging Face |
 
-### In Development / Planned Features 🚀
-
-- [ ] Agent debate system
-- [ ] Knowledge base optimization: Classify uploaded PDFs by embedding, select representative values for each category to improve retrieval efficiency
-- [ ] Low-confidence filter: Skip retrieval information if confidence score is below threshold
+The fine-tuned model was compared with the base model on semantic consistency between turns and prompt–output alignment (both measured with sentence embeddings), and improved on both. Training notebooks, data, and evaluation scripts live in [`local_model/`](local_model/).
 
 ---
 
-## Project Overview and Purpose
+## Use Cases
 
-### Primary Objective
-
-**Problem Statement:** While podcasts are popular for knowledge acquisition, they are created by content creators. This project provides a **user-controlled podcast generation system** that empowers users to create personalized podcasts from their own knowledge sources.
-
-### System Architecture
-
-The system combines:
-- **Frontend-Backend Configuration**: Modern web stack with separated concerns
-- **Worker Design Pattern**: Handles concurrent processing despite single-server constraint
-- **RAG Integration**: Leverages existing knowledge bases for context-aware generation
-- **Real-time Dialogue**: Support for interactive conversations with memory
-
-### Use Cases
-
-1. **Knowledge Base Scenario**: Generate podcast episodes from uploaded documents (e.g., F1 racing rules extraction)
-2. **Web Search Scenario**: Create dynamic content from web searches with real-time generation (e.g., world business news)
-3. **Conversational Scenario**: Interactive voice-based dialogue with context memory (e.g., Taiwan-related topics)
-
-### Technical Excellence
-
-- **Original Architecture**: Novel combination of RAG, dialogue generation, and TTS technologies beyond traditional one-way content delivery
-- **Engineering Quality**: Clean system architecture with clear data flow logic
-- **Deep Integration**: Demonstrates proficient model selection and technology integration
-- **Production Ready**: Complete implementation from concept to deployment
-
-### Evaluation Criteria
-
-- **Design Concept (40%)**: Originality and practical application potential
-- **Completeness (20%)**: Feature completeness and quality (stability and performance)
-- **Presentation (20%)**: Documentation, video content, and demo quality
-- **Professional Practice (15%)**: Software engineering methodology and development tools
-- **AI Integration (5%)**: Effective use of AI throughout the project lifecycle
+1. **Knowledge-base Q&A** — Upload the FIA F1 Sporting Regulations and ask about the 2026 pit-stop rules. Two hosts walk through the fast-lane restrictions, safety-car procedure, and stop-and-go penalties, drawing only on your document.
+2. **News briefing** — Turn on web search and ask for this week's world business news to get a fresh episode built from live sources.
+3. **Conversational follow-ups** — Ask about a Taiwan-related topic by voice, then interrupt with a follow-up question; the next episode picks up where the last one left off.
 
 ---
 
-*Last Updated: May 30, 2026*
+## Tech Stack
+
+- **Frontend** — Next.js + TypeScript, deployed on Vercel
+- **Backend** — FastAPI, Python 3.11, `uv`
+- **Speech** — Whisper (speech-to-text), Kokoro (text-to-speech)
+- **Retrieval** — `all-MiniLM-L6-v2` embeddings, FAISS, `ms-marco-MiniLM-L-12-v2` cross-encoder re-ranker
+- **Document parsing** — PyMuPDF / pdfplumber, python-docx, python-pptx, EasyOCR (English + Traditional Chinese)
+- **Web search** — Tavily + trafilatura
+- **Dialogue model** — Llama-3.2-1B-Instruct + LoRA (PEFT / transformers)
+- **Deployment** — Docker Compose (API + audio worker + retrieval worker) on DigitalOcean
+
+---
+
+## Getting Started
+
+```bash
+git clone https://github.com/Allenwang2004/Podcast-.git
+cd Podcast-
+cp .env.example .env        # fill in the API keys listed in the file
+docker compose up --build
+```
+
+The API is now available at `http://localhost:8001` (interactive docs at `/docs`). Point the frontend at this URL and generate your first episode.
+
+To run without Docker:
+
+```bash
+uv sync
+uv run python worker/retrieve_worker_service.py &
+uv run python worker/audio_worker_service.py &
+uv run uvicorn app.main:app --port 8001
+```
+
+---
+
+## Next Steps
+
+- [ ] **Agent debate mode** — let the two hosts take opposing viewpoints and argue a topic instead of agreeing.
+- [ ] **Smarter knowledge base** — cluster uploaded documents by embedding and pick representative chunks per cluster to keep retrieval fast on large libraries.
+- [ ] **Low-confidence filter** — skip retrieved passages whose relevance score falls below a threshold, so weak matches don't leak into the script.
+
+---
+
+## Team
+
+**Team PP** — [@Allenwang2004](https://github.com/Allenwang2004), [@0u88](https://github.com/0u88)
