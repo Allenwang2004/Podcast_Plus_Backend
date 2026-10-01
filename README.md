@@ -6,6 +6,14 @@
 
 > Turn any knowledge source into a personalized two-host podcast — generated on demand from your own documents, live web results, or a spoken question.
 
+<p align="center">
+  <img src="file/demo.gif" alt="Podcast+ demo: upload the FIA 2026 F1 regulations, ask a question, and follow the generated episode line by line" width="600">
+</p>
+
+<p align="center">
+  <a href="https://screen.studio/share/0vu4WJQt">Watch the full demo video with audio</a>
+</p>
+
 ---
 
 ## Why Podcast+
